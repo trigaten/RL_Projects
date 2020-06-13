@@ -16,6 +16,6 @@ Project Results! :{
 * what I learned/did in the process
 
 Credits
-* data / assets sources
 * advisors
+* data / assets sources
 * instagram and other info
