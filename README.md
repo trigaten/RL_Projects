@@ -1,5 +1,8 @@
-# TrigatenResearchYoutube
-A repo where I store my Youtube video code, notes, etc.
+# TrigatenResearch
+A repo where I store my Reinforcement learning projects
+
+
+youtube--
 Colors: green - 
 Fonts and whatnot
 For Logo Lucida grande Font
