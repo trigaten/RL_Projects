@@ -1,0 +1,259 @@
+import StateValueNode as SVN
+import Combinatorics as comb
+import math
+import Point
+import numpy as np
+from copy import copy, deepcopy
+class DeepFlowList:
+    def __init__(self, size, discountFactor):
+        # the size in one direction of a board 
+        self.size = size
+        self.discountFactor = discountFactor
+        # the maximum length of the snake
+        self.squaredSize = int(math.pow(size, 2))
+        # Stores the entire data structue with columns of SVNs
+        self.columnarSVNList = []
+        self.SVNDict = {}
+        for i in range(self.squaredSize):
+            self.columnarSVNList.append([])
+        print("starting construction")
+        for i in range(self.squaredSize):
+            print(self.squaredSize - i)
+            # counts backwards from squaredsize
+            currentLength = self.squaredSize - i
+            # if this is the last column (states where the snake has won)
+            if currentLength == self.squaredSize:
+                # in the construction of the DFl, the SVNs for the endgame winning states are created first
+                lastColumnStates = comb.getStatesFromSingleSizes(currentLength-1, size)
+                for j in lastColumnStates:
+                    # because these are possible final states that win the game, their value is assigned as 1
+                    copyState = deepcopy(j)
+                    node = deepcopy(SVN.StateValueNode(copyState, 1))
+                    self.columnarSVNList[currentLength-1].append(node)
+                    self.SVNDict[copyState] = node
+                    # print("left" + str(len(node.left)))
+            else:
+                states = comb.getStatesFromSingleSizes(currentLength-1, size)
+                SVNs = []
+                # print(states)
+                for j in states:
+                    # print("currentViewingState " + str(j))
+                    nSVN = deepcopy(SVN.StateValueNode(deepcopy(j), 0))
+                    for nextSVN in self.columnarSVNList[currentLength]:
+                        # print("----+-----")
+                        # print(nextSVN.getState())
+                        # will be a value 0, 1, 2, 3 or -1
+                        move = self.isPossibleNextState(j, nextSVN.getState())
+                        if move > -1:
+                            if move == 0:
+                                nSVN.addToLeft(nextSVN)
+                            elif move == 1:
+                                nSVN.addToRight(nextSVN)
+                            elif move == 2:
+                                nSVN.addToUp(nextSVN)
+                            elif move == 3:
+                                nSVN.addToDown(nextSVN)
+                    SVNs.append(nSVN)
+                self.columnarSVNList[currentLength-1] = SVNs
+
+        print("constructed for nextStates")
+        # from 0 to one before the last - this part is to see if there are any nextState possible with 
+        # the same snake size
+        for i in range(self.squaredSize-1):
+            for j in self.columnarSVNList[i]:
+                for k in self.columnarSVNList[i]:
+                    # print(k)
+                    if j != k:
+                        move = self.isPossibleNextState(j.getState(), k.getState())
+                        if move > -1:
+                            if move == 0:
+                                j.addToLeft(k)
+                            elif move == 1:
+                                j.addToRight(k)
+                            elif move == 2:
+                                j.addToUp(k)
+                            elif move == 3:
+                                j.addToDown(k)
+        print("constructed for nextCur states")
+        # rate of change when process stops
+        theta = 0.1
+        loss = 0.2
+        while loss > theta:
+            loss = self.bPvalueIteration()
+            print("loss " + str(loss))
+            for i in self.columnarSVNList:
+                # print(i)
+                for j in i:
+                    # print("------------------")
+                    # print("state" + str(j.getState()))
+                    a, b, c, d = j.getMoves()
+                    # print("left")
+                    # for p in a:
+                    #     print(p.getState())
+                    # print("right")
+                    # for p in b:
+                    #     print(p.getState())
+                    # print("up")
+                    # for p in c:
+                    #     print(p.getState())
+                    # print("down")
+                    # for p in d:
+                    #     print(p.getState())
+
+    """takes two states (2d board arrays) and returns 0, 1, 2, 3 (lrud) for which direction the next state 
+    is as a move or returns -1 if nextState is not an actual possible next state"""
+    def isPossibleNextState(self, state, nextState):
+        # if the snakes are of the same length (the snake has not eaten the food from one state to the next)
+        if self.getLength(state) == self.getLength(nextState):
+            for x in range(len(state)):
+                for y in range(len(state[0])):
+                    # gets the value of this location
+                    num = state[x][y]
+                    # if the foodPos is not the same, it is not a possible next state
+                    if num == -1:
+                        if nextState[x][y] != -1:
+                            return -1
+
+                    # since the snake can only move by 1 square each move, the difference 
+                    # between all nextPos and currentPos will be 1 (even including end pos bc we r 
+                    # testing from nextState to State)
+                    # [[0, 0, -1], [4, 5, 6], [3, 2, 1]], [[0, 0, -1], [5, 6, 1], [4, 3, 2]]
+                    # [[0, 0, 0, 0], [0, 0, 0, -1], [0, 0, 0, 0], [0, 2, 1, 0]]
+                    # [[0, 0, 0, 0], [0, 0, 0, -1], [0, 0, 0, 0], [0, 0, 2, 1]]
+                    elif nextState[x][y] > 0:
+                        if nextState[x][y] == 1:
+                            if num != 0 and num != self.getLength(num):
+                                return -1
+                        elif nextState[x][y] - num != 1:
+                                return -1
+            # since head positions are different, test like this
+            head1 = self.getHeadLocation(state)
+            head2 = self.getHeadLocation(nextState)
+            # if head positions more than one space apart
+            if abs(head1.x - head2.x) > 1:
+                return -1
+            if abs(head1.y - head2.y) > 1:
+                return -1
+            if abs(head1.x + head1.y - head2.x - head2.y) > 1:
+                return -1
+            # left
+            if head1.y > head2.y:
+                return 0
+            # right
+            if head1.y < head2.y:
+                return 1
+            # up
+            if head1.x > head2.x:
+                return 2
+            # down
+            if head1.x < head2.x:
+                return 3
+        else:
+            # the nextState is 1 length longer so some requirements for it to be a possible next state differ
+            for x in range(len(state)):
+                for y in range(len(state[0])):
+                    # gets the value of this location
+                    num = state[x][y]
+                    # the foodPos of state must be the headPos of nextState unless there is no food
+                    if num == -1 and self.getLength(nextState) != int(math.pow(len(nextState), 2)):
+                        if nextState[x][y] != 1:
+                            return -1
+                    
+                    # since the snake can only move by 1 square each move, the difference 
+                    # between all nextPos and currentPos will be 1 (even including end pos bc we r 
+                    # testing from state to nextState [notice this is flipped from the test with equal lengths])
+                    elif num > 0:
+                        if num - nextState[x][y] != -1:
+                            return -1
+            # since the head positions are actually the same, need to look at where the food was before
+            # it was eaten
+            foodLoc = self.getFoodLocation(state)
+            head = self.getHeadLocation(state)
+            # left
+            if foodLoc.y < head.y:
+                return 0
+            # right
+            if foodLoc.y > head.y:
+                return 1
+            # up
+            if foodLoc.x < head.x:
+                return 2
+            # down
+            if foodLoc.x > head.x:
+                return 3
+            
+        
+    """takes a board and returns a point (x, y) where the head is located (the head has a value of 1)"""
+    def getHeadLocation(self, board):
+        for x in range(len(board)):
+            for y in range(len(board[0])):
+                if board[x][y] == 1:
+                    return Point.Point(x, y)
+
+    """takes a board and returns a point (x, y) where the food is located (the food has a value of -1)"""
+    def getFoodLocation(self, board):
+        for x in range(len(board)):
+            for y in range(len(board[0])):
+                if board[x][y] == -1:
+                    return Point.Point(x, y)
+        
+
+    def getList(self):
+        return self.columnarSVNList
+    """takes 2d board and returns integer length of snake"""
+    def getLength(self, board):
+        return np.amax(board)
+
+    def bPvalueIteration(self):
+        loss = 0
+        # stats at last index
+        for x in reversed(range(len(self.columnarSVNList))):
+            # print("column " + str(x))
+            currentCol = self.columnarSVNList[x]
+            for i in currentCol:
+                # print("current state " + str(i.getState()))
+                # print("current value " + str(i.getValue()))
+                if i.hasNextStates():
+
+                    # print("HAS")
+                    l, r, u, d = i.getMoves()
+                    # print(str(l) + str(r) + str(u), str(d))
+                    sumOfValues = 0
+                    numOfPossibleNextStates = 0
+                    for j in l:
+                        sumOfValues += j.getValue()
+                        numOfPossibleNextStates += 1
+                    for j in r:
+                        sumOfValues += j.getValue()
+                        numOfPossibleNextStates += 1
+                    for j in u:
+                        sumOfValues += j.getValue()
+                        numOfPossibleNextStates += 1
+                    for j in d:
+                        sumOfValues += j.getValue()
+                        numOfPossibleNextStates += 1
+                    # print(sumOfValues)
+                    newValue = self.discountFactor * sumOfValues/numOfPossibleNextStates
+                    localLoss = abs(i.getValue() - newValue)
+                    # print("new value " + str(newValue))
+                    # print("localLoss " + str(localLoss))
+                    # print("new")
+                    # print(newValue)
+                    # print("old")
+                    # print(i.getValue())
+                    # print(loss)
+                    if abs(localLoss) > loss:
+                        loss = localLoss
+                    i.setValue(newValue)
+                    # print(i.getState())
+                    # print(i.getValue())
+        return loss
+                    
+
+
+
+
+# e = DeepFlowList(3, 0.9)
+# # print(e.getLength([[0, 0, -1], [5, 6, 1], [4, 3, 2]]))
+# print(e.isPossibleNextState([[0, 0, -1], [4, 5, 6], [3, 2, 1]], [[0, 0, -1], [5, 6, 1], [4, 3, 2]]))
+# # # # # print(e.isPossibleNextState([[1, 2, 0], [4, 3, 0], [0, 0, -1]]))
