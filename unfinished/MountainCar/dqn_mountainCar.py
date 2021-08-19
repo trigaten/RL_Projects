@@ -1,5 +1,5 @@
 # adapted from https://github.com/PacktPublishing/Deep-Reinforcement-Learning-Hands-On-Second-Edition/blob/master/Chapter07/06_cartpole.py
-# tensorboard --logdir saves --port=6006
+
 import gym
 import ptan 
 import torch
@@ -7,17 +7,15 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
-import statistics
 
 writer = SummaryWriter('saves')
-HIDDEN_SIZE = 256
+HIDDEN_SIZE = 32
 GAMMA = 0.95
 REPLAY_SIZE = 10000
 LR = 1e-3
-EPS_DECAY = 0.9999
-TGT_NET_SYNC = 1
+EPS_DECAY=0.99999
+TGT_NET_SYNC = 100
 BATCH_SIZE = 16
-lastXEpQ = []
 # Neural Net class
 class Net(nn.Module):
     def __init__(self, obs_size, hidden_size, n_actions):
@@ -63,21 +61,12 @@ while True:
     buffer.populate(1)
     # populated every 200 steps (at end of episode)
     for reward, steps in exp_source.pop_rewards_steps():
+        
         episode += 1
         print("%d: episode %d done, reward=%.3f, epsilon=%.2f" % (
             step, episode, reward, selector.epsilon))
         writer.add_scalar("reward", reward, episode)
-        try:
-            mean = statistics.mean(lastXEpQ)
-            writer.add_scalar("meanR", mean, episode)
-            solved = mean > -110
-            print("mean ", mean)
-        except:
-            pass
-        lastXEpQ.append(reward)
-        if len(lastXEpQ) > 100:
-            lastXEpQ.pop(0)
-        
+        solved = reward > -110
     if solved:
         print("DONE")
         break
@@ -122,19 +111,8 @@ while True:
     writer.add_scalar("loss", loss_v.item(), episode)
     
     optimizer.step()
-    if selector.epsilon > 0.1:
-        selector.epsilon *= EPS_DECAY
+    selector.epsilon *= EPS_DECAY
 
     if step % TGT_NET_SYNC == 0:
         tgt_net.sync()
 writer.close()
-
-# 1000 after 2.5 days
-# HIDDEN_SIZE = 256
-# GAMMA = 0.95
-# REPLAY_SIZE = 10000
-# LR = 1e-3
-# EPS_DECAY = 0.9999
-# TGT_NET_SYNC = 1
-# BATCH_SIZE = 16
-# lastXEpQ = []
