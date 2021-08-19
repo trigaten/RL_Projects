@@ -1,12 +1,13 @@
 # Tabular-Q-Learning_In_Snake
-Finds optimal policies for a given square game board.
+This is an experiment with the snake game that finds optimal policies for a given square game board.
+I wrote everything from scratch more or less (I used a graphics lib)
 
 --Run displayTest and change the line GAME_SIZE = to whatever boardsize you would like. Boardsizes > 3 may be extremely slow to solve/not
 compute because state spaces explode according to the following table (Actual section):
 
-Possible states at a given board length, L
+Possible states at a given board length, L:
 
-L | Upper Bound | Actual
+L | Upper Bound (computed using a simple formula) | Actual
 
 1 : 1 | 1
 
