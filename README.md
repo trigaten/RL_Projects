@@ -1,2 +1,2 @@
 # TrigatenResearch
-A repo where I store my Reinforcement learning and other projects
+A repo where I store my Reinforcement Learning projects
