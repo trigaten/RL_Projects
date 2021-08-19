@@ -6,9 +6,10 @@ import ptan
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+# tensorboard --logdir runs
 
-writer = SummaryWriter(__file__[:-3])
-
+writer = SummaryWriter()
+# __file__[:-3]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -32,18 +33,19 @@ env = gym.make('LunarLander-v2')
 
 net = P_net(env.observation_space.shape[0], env.action_space.n) 
 
-optimizer = optim.Adam(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.Adam(net.parameters(), lr=0.001)
 
 agent = ptan.agent.PolicyAgent(lambda x: net(x), apply_softmax=True, preprocessor=ptan.agent.float32_preprocessor, device='cpu')
 exp_source = ptan.experience.ExperienceSourceFirstLast(env, agent, gamma=0.0, steps_count=1)
 
 env.reset()
 
-states = []
-actions = [] 
-rewards = []
+
 episode_count = 0
 while True:
+    states = []
+    actions = [] 
+    rewards = []
     for idx, exp in enumerate(exp_source):
         states.append(exp.state)
         actions.append(exp.action)
@@ -69,10 +71,7 @@ while True:
 
     actions = torch.LongTensor(actions)
     states = torch.FloatTensor(states)
-    print(states.shape)
-    # exit(0)
     net_vals = net(states)
-    # print(net_vals.shape)
     net_probs = F.log_softmax(net_vals, dim=1)
 
     # an array which contains the corresponding log probability of each action in actions
